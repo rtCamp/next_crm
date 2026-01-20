@@ -44,6 +44,30 @@ def get_contact(name):
 
 
 @frappe.whitelist()
+def get_contact_by_email(email: str):
+    """Fetch contact details using email as the primary identifier."""
+    if not email:
+        frappe.throw(_("Email is required"), frappe.ValidationError)
+
+    contacts = frappe.get_all(
+        "Contact Email",
+        filters={"email_id": email},
+        fields=["parent", "is_primary"],
+        order_by="is_primary desc",
+    )
+
+    if not contacts:
+        frappe.throw(_("Contact not found"), frappe.DoesNotExistError)
+
+    for contact in contacts:
+        if not frappe.has_permission("Contact", "read", contact.parent):
+            continue
+        return get_contact(contact.parent)
+
+    frappe.throw(_("Not permitted to access this contact"), frappe.PermissionError)
+
+
+@frappe.whitelist()
 def get_linked_opportunities(contact):
     """Get linked opportunities for a contact"""
     opportunity_names = get_linked_docs(contact, "Opportunity")
