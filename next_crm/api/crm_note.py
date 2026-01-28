@@ -58,6 +58,65 @@ def create_note(
     return new_note
 
 
+def _validate_crm_note(
+    reference_doctype, reference_name, parent_note=None, attachments=None
+):
+    if reference_doctype not in ("Lead", "Opportunity"):
+        frappe.throw(_("Invalid reference_doctype"), frappe.ValidationError)
+
+    if not reference_name:
+        frappe.throw(_("reference_name is required"), frappe.ValidationError)
+
+    if not frappe.db.exists(reference_doctype, reference_name):
+        frappe.throw(_("Document not found"), frappe.DoesNotExistError)
+
+        # Creating a note should require write access to the referenced doc.
+    if not frappe.has_permission(reference_doctype, "write", reference_name):
+        frappe.throw(_("Not permitted"), frappe.PermissionError)
+
+    if not frappe.has_permission("CRM Note", "create"):
+        frappe.throw(_("Not permitted"), frappe.PermissionError)
+
+    if parent_note and not frappe.db.exists("CRM Note", parent_note):
+        frappe.throw(_("Parent note not found"), frappe.DoesNotExistError)
+
+    if attachments is not None:
+        if not isinstance(attachments, (list, tuple)):
+            frappe.throw(_("attachments must be a list"), frappe.ValidationError)
+
+        for file in attachments:
+            if isinstance(file, str):
+                continue
+            if isinstance(file, dict) and file.get("filename"):
+                continue
+            frappe.throw(_("Invalid attachment format"), frappe.ValidationError)
+
+
+@frappe.whitelist()
+def log_note(
+    reference_doctype,
+    reference_name,
+    note=None,
+    title=None,
+    attachments=None,
+    added_on=None,
+    parent_note=None,
+):
+    """Log a CRM Note linked to a Lead or Opportunity."""
+
+    _validate_crm_note(reference_doctype, reference_name, parent_note, attachments)
+
+    return create_note(
+        doctype=reference_doctype,
+        docname=reference_name,
+        title=title,
+        note=note,
+        parent_note=parent_note,
+        attachments=attachments,
+        added_on=added_on,
+    )
+
+
 @frappe.whitelist()
 def update_note(doctype, docname, note_name, note=None, attachments=None):
     """

@@ -4,6 +4,66 @@ from frappe import _
 from next_crm.ncrm.doctype.crm_notification.crm_notification import notify_user
 
 
+def _validate_task_reference(reference_doctype: str, reference_name: str):
+    if reference_doctype not in ("Lead", "Opportunity"):
+        frappe.throw(_("Invalid reference_doctype"), frappe.ValidationError)
+
+    if not reference_name:
+        frappe.throw(_("reference_name is required"), frappe.ValidationError)
+
+    if not frappe.db.exists(reference_doctype, reference_name):
+        frappe.throw(_("Document not found"), frappe.DoesNotExistError)
+
+    # Creating a follow-up should require write access to the referenced doc.
+    if not frappe.has_permission(reference_doctype, "write", reference_name):
+        frappe.throw(_("Not permitted"), frappe.PermissionError)
+
+    if not frappe.has_permission("ToDo", "create"):
+        frappe.throw(_("Not permitted"), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def create_task(
+    reference_doctype,
+    reference_name,
+    title=None,
+    description=None,
+    allocated_to=None,
+    date=None,
+    priority="Medium",
+    status="Open",
+):
+    """Create a follow-up ToDo linked to a Lead or Opportunity."""
+
+    _validate_task_reference(reference_doctype, reference_name)
+
+    title = (title or "").strip()
+    description = (description or "").strip()
+
+    if not title and not description:
+        frappe.throw(
+            _("ToDo must have either a title or a description."),
+            frappe.ValidationError,
+        )
+
+    todo = frappe.get_doc(
+        {
+            "doctype": "ToDo",
+            "reference_type": reference_doctype,
+            "reference_name": reference_name,
+            "custom_title": title,
+            "description": description,
+            "allocated_to": allocated_to or frappe.session.user,
+            "assigned_by": frappe.session.user,
+            "date": date,
+            "priority": priority or "Medium",
+            "status": status or "Open",
+        }
+    )
+    todo.insert()
+    return todo
+
+
 def notify_assigned_user(doc, is_cancelled=False):
     _doc = frappe.get_doc(doc.reference_type, doc.reference_name)
     owner = frappe.get_cached_value("User", frappe.session.user, "full_name")
