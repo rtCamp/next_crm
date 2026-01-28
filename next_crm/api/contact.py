@@ -44,6 +44,30 @@ def get_contact(name):
 
 
 @frappe.whitelist()
+def get_contact_by_email(email: str):
+    """Fetch contact details using email as the primary identifier."""
+    if not email:
+        frappe.throw(_("Email is required"), frappe.ValidationError)
+
+    contacts = frappe.get_all(
+        "Contact Email",
+        filters={"email_id": email},
+        fields=["parent", "is_primary"],
+        order_by="is_primary desc",
+    )
+
+    if not contacts:
+        frappe.throw(_("Contact not found"), frappe.DoesNotExistError)
+
+    for contact in contacts:
+        if not frappe.has_permission("Contact", "read", contact.parent):
+            continue
+        return get_contact(contact.parent)
+
+    frappe.throw(_("Not permitted to access this contact"), frappe.PermissionError)
+
+
+@frappe.whitelist()
 def get_linked_opportunities(contact):
     """Get linked opportunities for a contact"""
     opportunity_names = get_linked_docs(contact, "Opportunity")
@@ -69,6 +93,74 @@ def get_linked_opportunities(contact):
         opportunities.append(opportunity.as_dict())
 
     return opportunities
+
+
+@frappe.whitelist()
+def get_linked_customers(contact):
+    """Get customer details linked to a contact."""
+    customer_names = get_linked_docs(contact, "Customer")
+    if not customer_names:
+        return []
+
+    customers = []
+    for customer_name in customer_names:
+        if not frappe.has_permission("Customer", "read", customer_name):
+            continue
+        customer = frappe.get_cached_value(
+            "Customer",
+            customer_name,
+            [
+                "name",
+                "customer_name",
+                "customer_group",
+                "customer_type",
+                "territory",
+                "disabled",
+            ],
+            as_dict=True,
+        )
+        if customer:
+            customers.append(customer)
+
+    if customers:
+        return customers
+
+    frappe.throw(_("Not permitted to access linked customers"), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def get_linked_leads(contact):
+    """Get lead details linked to a contact."""
+    lead_names = get_linked_docs(contact, "Lead")
+    if not lead_names:
+        return []
+
+    leads = []
+    for lead_name in lead_names:
+        if not frappe.has_permission("Lead", "read", lead_name):
+            continue
+        lead = frappe.get_cached_value(
+            "Lead",
+            lead_name,
+            [
+                "name",
+                "lead_name",
+                "company_name",
+                "status",
+                "source",
+                "territory",
+                "email_id",
+                "mobile_no",
+            ],
+            as_dict=True,
+        )
+        if lead:
+            leads.append(lead)
+
+    if leads:
+        return leads
+
+    frappe.throw(_("Not permitted to access linked leads"), frappe.PermissionError)
 
 
 @frappe.whitelist()
