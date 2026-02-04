@@ -60,5 +60,5 @@ quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
 
-[tool.bench.frappe-dependencies.frappe]
+[tool.bench.frappe-dependencies]
 frappe = ">=15.0.0,<=16.0.0"
