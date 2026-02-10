@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 
-const fs = require("fs");
-const path = require("path");
-const parser = require("@babel/parser");
-const traverse = require("@babel/traverse").default;
+import fs from "fs";
+import path from "path";
+import parser from "@babel/parser";
+import traverseModule from "@babel/traverse";
+import { fileURLToPath } from "url";
+
+const traverse = traverseModule.default || traverseModule;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Point to your specs directory
 const TEST_DIR = path.resolve(__dirname, "../specs");
@@ -91,7 +96,7 @@ function collectTests(rootDir) {
           const isSkipped = ["skip", "fixme"].includes(kind) || inSkipDesc;
 
           results.push(
-            new TestNode(path.relative(process.cwd(), filePath), titleArg.loc.start.line, fullTitle, isOnly, isSkipped)
+            new TestNode(path.relative(process.cwd(), filePath), titleArg.loc.start.line, fullTitle, isOnly, isSkipped),
           );
         },
         exit(pathNode) {

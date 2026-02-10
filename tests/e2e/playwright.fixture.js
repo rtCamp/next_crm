@@ -1,7 +1,11 @@
-const { test: base, expect, devices } = require("@playwright/test");
-const path = require("path");
-const fs = require("fs").promises;
-const { storeStorageState } = require("./helpers/storageStateHelper");
+import { test as base, expect, devices } from "@playwright/test";
+import path from "path";
+import fs from "fs/promises";
+import { fileURLToPath } from "url";
+import { storeStorageState } from "./helpers/storageStateHelper.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Define the single shared JSON directory
 const SHARED_JSON_DIR = path.resolve(__dirname, "data", "json-files");
@@ -10,7 +14,7 @@ const SHARED_JSON_DIR = path.resolve(__dirname, "data", "json-files");
 const test = base.extend({
   // Worker-scoped fixture: generate a unique storageState per role per worker
   authState: [
-    async ({ }, use, testInfo) => {
+    async ({}, use, testInfo) => {
       const role = testInfo.project.metadata.TEST_ROLE;
       if (!role) {
         throw new Error("`metadata.TEST_ROLE` must be set on the project");
@@ -38,7 +42,7 @@ const test = base.extend({
 
   // Fixed JSON directory - same for all workers
   jsonDir: [
-    async ({ }, use) => {
+    async ({}, use) => {
       //console.log(`📁 Using shared JSON directory: ${SHARED_JSON_DIR}`);
 
       // Verify directory exists (should be created in global setup)
@@ -47,9 +51,7 @@ const test = base.extend({
         //console.log("✅ JSON directory exists");
       } catch {
         console.error("❌ JSON directory missing - was global setup run?");
-        throw new Error(
-          "JSON directory not found. Ensure global setup has run."
-        );
+        throw new Error("JSON directory not found. Ensure global setup has run.");
       }
 
       await use(SHARED_JSON_DIR);
@@ -63,4 +65,4 @@ const test = base.extend({
   },
 });
 
-module.exports = { test, expect, devices };
+export { test, expect, devices };

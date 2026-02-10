@@ -1,7 +1,11 @@
 import { request } from "@playwright/test";
 import path from "path";
+import { fileURLToPath } from "url";
 import fs from "fs";
 import config from "../../playwright.config";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load config variables
 const baseURL = config.use?.baseURL;
@@ -55,7 +59,7 @@ export const apiRequest = async (endpoint, options = {}, role = "admin") => {
     const text = await response.text();
     await requestContext.dispose();
     throw new Error(
-      `API request failed for ${role} and endpoint ${endpoint}: ${response.status()} ${response.statusText()}\n${text}`
+      `API request failed for ${role} and endpoint ${endpoint}: ${response.status()} ${response.statusText()}\n${text}`,
     );
   }
 
@@ -93,8 +97,7 @@ export const filterApi = async (docType, filters, role = "admin") => {
       method: "POST",
       form: formPayload,
     },
-    role
+    role,
   );
 };
 // ------------------------------------------------------------------------------------------
-

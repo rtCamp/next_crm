@@ -1,4 +1,6 @@
 name: Next-CRM Playwright Tests
+permissions:
+  contents: read
 
 # Controls when the workflow will run
 on:
@@ -16,11 +18,14 @@ jobs:
 
   test:
     if: |
-      (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') || success()
-    runs-on: self-hosted
-    container:
-      image: ubuntu:24.04
-    environment: Stage # Retrive secrets from 'Stage' environment
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'pull_request_review' && github.event.review.state == 'approved')
+    runs-on: ubuntu-latest
+    environment: Stage # Retrieve secrets from 'Stage' environment
+    defaults:
+      run:
+        working-directory: tests/e2e
     env:
       BASE_URL: ${{ secrets.BASE_URL }}
 
@@ -43,13 +48,21 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version-file: "frontend/.nvmrc"
+        node-version: "18"
+
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: "temurin"
+        java-version: "17"
 
     - name: Cache npm modules
       uses: actions/cache@v4
       with:
-        path: /github/home/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+        path: |
+          ~/.npm
+          tests/e2e/node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('tests/e2e/package-lock.json') }}
         restore-keys: |
           ${{ runner.os }}-node-
 
@@ -60,17 +73,14 @@ jobs:
         node --version
         npm --version
 
-    - name: Install prerequisites
-      run: |
-        apt-get update
-        apt-get install -y curl sudo
-
     - name: Sanitize branch name
       shell: bash
+      env:
+        UNTRUSTED_PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
       run: |
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          # PR → use the source branch name
-          RAW_BRANCH="${{ github.head_ref }}"
+        if [ "${{ github.event_name }}" = "pull_request_review" ]; then
+          # PR Review → use the source branch name
+          RAW_BRANCH="$UNTRUSTED_PR_HEAD_REF"
         else
           # workflow_dispatch or schedule → use whatever ref we were on
           RAW_BRANCH="${GITHUB_REF#refs/heads/}"
@@ -79,17 +89,18 @@ jobs:
         SAFE_BRANCH="${RAW_BRANCH//\//-}"
         echo "SANITIZED_REF=${SAFE_BRANCH}" >> $GITHUB_ENV
         echo "→ Restoring/uploading history under key: ${SAFE_BRANCH}"
-
     - name: Debug—print refs
       run: |
         echo "EVENT_NAME = ${{ github.event_name }}"
         echo "GITHUB_REF = $GITHUB_REF"
         echo "SANITIZED_REF = $SANITIZED_REF"
+        echo "WORKING_DIRECTORY = $(pwd)"
 
     - name: Create local allure-history/history folder
       run: mkdir -p allure-history/history
 
     - name: Install MinIO Client (mc)
+      working-directory: ${{ github.workspace }}
       run: |
         curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
           -o mc && chmod +x mc && sudo mv mc /usr/local/bin/
@@ -102,6 +113,7 @@ jobs:
           ${{ env.HETZNER_S3_SECRET_ACCESS_KEY }}
 
     - name: Restore Allure history for this branch (mc)
+      working-directory: tests/e2e
       run: |
         if mc ls hetzner/${{ env.HETZNER_S3_BUCKET }}/${{ env.SANITIZED_REF }}/history/ | grep -q .; then
           echo "Restoring previous Allure history..."
@@ -119,19 +131,10 @@ jobs:
     - name: Install dependencies
       run: |
         npm ci
-        cd tests/e2e/
         npx playwright install --with-deps
 
-    - name: Setup Java
-      uses: actions/setup-java@v3
-      with:
-        distribution: "temurin"
-        java-version: "17"
-
     - name: Run e2e Tests.
-      run: |
-        cd tests/e2e/
-        npm run e2e:tests --
+      run: npm run e2e:tests --
 
     - name: Restore previous Allure history into results
       if: always()
@@ -141,25 +144,19 @@ jobs:
 
     - name: Generate Allure (for count extraction)
       if: always()
-      run: |
-        cd tests/e2e
-        # clean & generate for count-extraction
-        npm run allure:report
+      run: npm run allure:report
 
     - name: Merge history into results
       if: always()
-      run: |
-        
-        cp -R allure-report-for-count-extraction/history/* allure-results/history/
+      run: cp -R allure-report-for-count-extraction/history/* allure-results/history/
 
     - name: Generate single-file Allure HTML
       if: always()
-      run: |
-        cd tests/e2e
-        npm run allure:htmlReport
+      run: npm run allure:htmlReport
 
     - name: Upload updated Allure history for this branch (mc)
       if: always()
+      working-directory: tests/e2e
       run: |
         mc cp --recursive \
           allure-results/history/ \
@@ -169,7 +166,7 @@ jobs:
       if: ${{ success() || failure() }}
       run: |
         # Install jq
-        apt-get update && apt-get install -y jq
+        sudo apt-get update && sudo apt-get install -y jq
 
         # Path to the Allure summary file
         SUMMARY_FILE="allure-report-for-count-extraction/widgets/summary.json"
@@ -217,7 +214,7 @@ jobs:
       if: always()
       run: |
         echo "PWD: $(pwd)"
-        echo "Root contents:"
+        echo "Contents of current directory:"
         ls -1
         echo "Contents of allure-history/:"
         ls -R allure-history || echo "(not found or empty)"
@@ -227,19 +224,18 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Allure-report
-        path: allure-report
+        path: tests/e2e/allure-report
 
     - name: Zip Allure Report
       if: ${{ success() || failure() }}
       run: |
-        apt-get update && apt-get install -y zip
+        sudo apt-get update && sudo apt-get install -y zip
         REPORT_DIR="allure-report"
         OUTPUT_ZIP="report.zip"
 
         if [ -d "$REPORT_DIR" ]; then
           echo "Zipping Allure report..."
-          cd "$(dirname "$REPORT_DIR")"
-          zip -r "$OUTPUT_ZIP" "$(basename "$REPORT_DIR")"
+          zip -r "$OUTPUT_ZIP" "$REPORT_DIR"
         else
           echo "Error - Allure Report not found in $REPORT_DIR"
           exit 1
@@ -247,13 +243,17 @@ jobs:
 
     - name: Set the email body message for pull request merge or schedule message
       if: ${{ success() || failure() }}
+      env:
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_URL: ${{ github.event.pull_request.html_url }}
       run: |
-        if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-          echo "message=<p>For the latest pull request merge titled <b><a href='${{ github.event.pull_request.html_url }}'> ${{ github.event.pull_request.title }}</a></b>, the E2E automation tests have been executed on the QE environment. Below is the summary:</p>" >> $GITHUB_ENV
+        if [ "${GITHUB_EVENT_NAME}" = "pull_request_review" ]; then
+          # Sanitize PR_TITLE to prevent environment variable injection
+          SANITIZED_PR_TITLE="$(echo "$PR_TITLE" | tr -d '\n' | tr -d '\r')"
+          echo "message=<p>For the latest pull request titled <b><a href='$PR_URL'> $SANITIZED_PR_TITLE</a></b>, the E2E automation tests have been executed on the QE environment. Below is the summary:</p>" >> $GITHUB_ENV
         else
           echo "message=<p>This is to inform you that the scheduled E2E automation tests have been executed on the QE environment. Below is the summary:</p>" >> $GITHUB_ENV
         fi
-
     - name: Send Report via Email
       if: ${{ success() || failure() }}
       uses: dawidd6/action-send-mail@v3
@@ -262,7 +262,7 @@ jobs:
         server_port: 587
         username: ${{ secrets.QA_WORKFLOW_EMAIL }}
         password: ${{ secrets.QA_WORKFLOW_EMAIL_PASSWORD }}
-        subject: Test Automation Report - Next PMS
+        subject: Test Automation Report - Next CRM
         html_body: |
           <html>
             <head>
@@ -400,6 +400,3 @@ jobs:
         to: bots-erp-rtcamp-com-aaaajmbbbavnlkxccfuvoqjqsy@rtcamp.slack.com
         from: no-reply@gmail.com
 
-    - name: Cleanup
-      if: ${{ always() }}
-      uses: rtCamp/action-cleanup@master

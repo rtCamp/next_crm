@@ -3,8 +3,11 @@ import { createJSONFile, populateJsonStubs } from "../utils/fileUtils";
 import path from "path";
 import fs from "fs";
 import { execSync } from "child_process";
-import { create } from "domain";
+import { fileURLToPath } from "url";
 import { createLeadForTestCases } from "../helpers/leadTabHelper";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const globalSetup = async () => {
   console.log("🚀 Starting global setup...");
@@ -79,7 +82,6 @@ const globalSetup = async () => {
   for (const tcId of allTCIds) {
     console.log(`➡️ Processing ${tcId}`);
     await createLeadForTestCases([tcId], jsonDir);
-
   }
 
   console.log("✅ Data generation completed for all TC IDs! Global setup done.");

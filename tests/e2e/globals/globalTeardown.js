@@ -1,7 +1,11 @@
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 import { deleteLeadForTestCases } from "../helpers/leadTabHelper.js";
 // ------------------------------------------------------------------------------------------
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Global teardown function to delete the stale test data after running tests.
@@ -25,7 +29,6 @@ const globalTeardown = async () => {
     await deleteLeadForTestCases([tcId], path.join(__dirname, "../data/json-files"));
   }
   console.log("✅ Global teardown completed: test data cleaned up.");
-
 };
 
 export default globalTeardown;
