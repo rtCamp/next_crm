@@ -44,10 +44,7 @@ def create_note(
     if attachments:
         new_note.set(
             "custom_note_attachments",
-            [
-                {"filename": file} if isinstance(file, str) else file
-                for file in attachments
-            ],
+            [{"filename": file} if isinstance(file, str) else file for file in attachments],
         )
     new_note.insert()
     notify_mentions_ncrm(note, new_note.name, docname, doctype)
@@ -129,9 +126,9 @@ def notify_mentions_ncrm(note, note_name, docname, doctype):
             }
         )
 
-    email_notification_message = _(
-        """[Next CRM] {0} mentioned you in a Note in {1} {2}"""
-    ).format(frappe.bold(owner), frappe.bold(doctype), get_title_html(title))
+    email_notification_message = _("""[Next CRM] {0} mentioned you in a Note in {1} {2}""").format(
+        frappe.bold(owner), frappe.bold(doctype), get_title_html(title)
+    )
 
     recipients = [
         frappe.db.get_value(
@@ -168,7 +165,8 @@ def delete_note(note_name):
     if not note:
         raise frappe.ValidationError(_("Note not found."))
 
-    filenames_to_delete = [row.filename for row in note.custom_note_attachments]
+    note_names_to_delete = [note_name]
+    child_notes = []
 
     parent_note = note.custom_parent_note
     if not parent_note:
@@ -178,18 +176,28 @@ def delete_note(note_name):
             fields=["name"],
             pluck="name",
         )
-        for child_note in child_notes:
-            child_note_doc = frappe.get_doc("CRM Note", child_note)
-            child_filenames = [
-                row.filename for row in child_note_doc.custom_note_attachments
-            ]
-            filenames_to_delete.extend(child_filenames)
-            frappe.db.delete("CRM Notification", {"notification_type_doc": child_note})
-            frappe.delete_doc("CRM Note", child_note)
+        note_names_to_delete.extend(child_notes)
 
-    frappe.db.delete("CRM Notification", {"notification_type_doc": note_name})
+    # Batch fetch all attachments for all notes
+    all_attachments = frappe.get_all(
+        "NCRM Attachments",
+        filters={"parent": ["in", note_names_to_delete], "parenttype": "CRM Note"},
+        fields=["filename"],
+        pluck="filename",
+    )
+
+    # Bulk delete notifications
+    frappe.db.delete("CRM Notification", {"notification_type_doc": ["in", note_names_to_delete]})
+
+    # Delete child notes first (using delete_doc to ensure proper hooks are called)
+    for child_note_name in child_notes:
+        frappe.delete_doc("CRM Note", child_note_name)
+
+    # Delete the parent note
     note.delete()
-    for filename in filenames_to_delete:
+
+    # Delete files (loop needed to properly handle file cleanup and missing files)
+    for filename in all_attachments:
         try:
             frappe.delete_doc("File", filename)
         except frappe.DoesNotExistError:
@@ -302,9 +310,7 @@ def copy_crm_notes_to_opportunity(lead, opportunity):
     frappe.db.commit()
 
 
-def duplicate_file(
-    original_file_name, new_attached_to_doctype=None, new_attached_to_name=None
-):
+def duplicate_file(original_file_name, new_attached_to_doctype=None, new_attached_to_name=None):
     """
     Create a duplicate of a file with new attachment references.
     Returns the name of the new file document.
