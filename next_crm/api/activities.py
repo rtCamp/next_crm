@@ -21,8 +21,7 @@ def get_opportunity_activities(name):
     docinfo = frappe.response["docinfo"]
     opportunity_meta = frappe.get_meta("Opportunity")
     opportunity_fields = {
-        field.fieldname: {"label": field.label, "options": field.options}
-        for field in opportunity_meta.fields
+        field.fieldname: {"label": field.label, "options": field.options} for field in opportunity_meta.fields
     }
     avoid_fields = [
         "party_name",
@@ -34,9 +33,7 @@ def get_opportunity_activities(name):
         "first_responded_on",
     ]
 
-    doc = frappe.db.get_values(
-        "Opportunity", name, ["creation", "owner", "opportunity_from", "party_name"]
-    )[0]
+    doc = frappe.db.get_values("Opportunity", name, ["creation", "owner", "opportunity_from", "party_name"])[0]
     opportunity_from = doc[2]
 
     activities = []
@@ -48,9 +45,7 @@ def get_opportunity_activities(name):
 
     if opportunity_from == "Lead":
         lead = doc[3]
-        activities, calls, _notes, todos, events, attachments, _opportunities = (
-            get_lead_activities(lead, False, True)
-        )
+        activities, calls, _notes, todos, events, attachments, _opportunities = get_lead_activities(lead, False, True)
 
         creation_text = "converted the lead to this opportunity"
 
@@ -66,6 +61,14 @@ def get_opportunity_activities(name):
 
     docinfo.versions.reverse()
 
+    # Batch fetch attachments for all comments and info_logs
+    comment_names = [c.name for c in docinfo.comments] + [i.name for i in docinfo.info_logs]
+    comment_attachments = get_attachments_batch("Comment", comment_names)
+
+    # Batch fetch attachments for all communications
+    comm_names = [c.name for c in docinfo.communications + docinfo.automated_messages]
+    comm_attachments = get_attachments_batch("Communication", comm_names)
+
     for version in docinfo.versions:
         data = json.loads(version.data)
         if not data.get("changed"):
@@ -74,11 +77,7 @@ def get_opportunity_activities(name):
         if change := data.get("changed")[0]:
             field = opportunity_fields.get(change[0], None)
 
-            if (
-                not field
-                or change[0] in avoid_fields
-                or (not change[1] and not change[2])
-            ):
+            if not field or change[0] in avoid_fields or (not change[1] and not change[2]):
                 continue
 
             field_label = field.get("label") or change[0]
@@ -124,7 +123,7 @@ def get_opportunity_activities(name):
             "creation": comment.creation,
             "owner": comment.owner,
             "content": comment.content,
-            "attachments": get_attachments("Comment", comment.name),
+            "attachments": comment_attachments.get(comment.name, []),
             "is_lead": False,
         }
         activities.append(activity)
@@ -136,7 +135,7 @@ def get_opportunity_activities(name):
             "creation": info_log.creation,
             "owner": info_log.owner,
             "content": info_log.content,
-            "attachments": get_attachments("Comment", info_log.name),
+            "attachments": comment_attachments.get(info_log.name, []),
             "is_lead": False,
         }
         activities.append(activity)
@@ -154,7 +153,7 @@ def get_opportunity_activities(name):
                 "recipients": communication.recipients,
                 "cc": communication.cc,
                 "bcc": communication.bcc,
-                "attachments": get_attachments("Communication", communication.name),
+                "attachments": comm_attachments.get(communication.name, []),
                 "read_by_recipient": communication.read_by_recipient,
                 "delivery_status": communication.delivery_status,
             },
@@ -175,20 +174,14 @@ def get_opportunity_activities(name):
                 "data": {
                     "subject": thread["template_data"]["doc"]["subject"],
                     "content": thread["template_data"]["doc"]["content"],
-                    "sender_full_name": thread["template_data"]["doc"][
-                        "sender_full_name"
-                    ],
+                    "sender_full_name": thread["template_data"]["doc"]["sender_full_name"],
                     "sender": thread["template_data"]["doc"]["sender"],
                     "recipients": thread["template_data"]["doc"]["recipients"],
                     "cc": thread["template_data"]["doc"]["cc"],
                     "bcc": thread["template_data"]["doc"]["bcc"],
                     "attachments": thread["template_data"]["doc"]["attachments"],
-                    "read_by_recipient": thread["template_data"]["doc"][
-                        "read_by_recipient"
-                    ],
-                    "delivery_status": thread["template_data"]["doc"][
-                        "delivery_status"
-                    ],
+                    "read_by_recipient": thread["template_data"]["doc"]["read_by_recipient"],
+                    "delivery_status": thread["template_data"]["doc"]["delivery_status"],
                 },
                 "is_lead": False,
             }
@@ -200,9 +193,7 @@ def get_opportunity_activities(name):
             "activity_type": "attachment_log",
             "creation": attachment_log.creation,
             "owner": attachment_log.owner,
-            "data": parse_attachment_log(
-                attachment_log.content, attachment_log.comment_type
-            ),
+            "data": parse_attachment_log(attachment_log.content, attachment_log.comment_type),
             "is_lead": False,
         }
         activities.append(activity)
@@ -224,10 +215,7 @@ def get_lead_activities(name, get_events=True, exclude_crm_note_attachments=Fals
     get_docinfo("", "Lead", name)
     docinfo = frappe.response["docinfo"]
     lead_meta = frappe.get_meta("Lead")
-    lead_fields = {
-        field.fieldname: {"label": field.label, "options": field.options}
-        for field in lead_meta.fields
-    }
+    lead_fields = {field.fieldname: {"label": field.label, "options": field.options} for field in lead_meta.fields}
     avoid_fields = [
         "converted",
         "response_by",
@@ -250,6 +238,14 @@ def get_lead_activities(name, get_events=True, exclude_crm_note_attachments=Fals
 
     docinfo.versions.reverse()
 
+    # Batch fetch attachments for all comments
+    comment_names = [c.name for c in docinfo.comments]
+    comment_attachments = get_attachments_batch("Comment", comment_names)
+
+    # Batch fetch attachments for all communications
+    comm_names = [c.name for c in docinfo.communications + docinfo.automated_messages]
+    comm_attachments = get_attachments_batch("Communication", comm_names)
+
     for version in docinfo.versions:
         data = json.loads(version.data)
         if not data.get("changed"):
@@ -258,11 +254,7 @@ def get_lead_activities(name, get_events=True, exclude_crm_note_attachments=Fals
         if change := data.get("changed")[0]:
             field = lead_fields.get(change[0], None)
 
-            if (
-                not field
-                or change[0] in avoid_fields
-                or (not change[1] and not change[2])
-            ):
+            if not field or change[0] in avoid_fields or (not change[1] and not change[2]):
                 continue
 
             field_label = field.get("label") or change[0]
@@ -308,7 +300,7 @@ def get_lead_activities(name, get_events=True, exclude_crm_note_attachments=Fals
             "creation": comment.creation,
             "owner": comment.owner,
             "content": comment.content,
-            "attachments": get_attachments("Comment", comment.name),
+            "attachments": comment_attachments.get(comment.name, []),
             "is_lead": True,
         }
         activities.append(activity)
@@ -328,7 +320,7 @@ def get_lead_activities(name, get_events=True, exclude_crm_note_attachments=Fals
                 "recipients": communication.recipients,
                 "cc": communication.cc,
                 "bcc": communication.bcc,
-                "attachments": get_attachments("Communication", communication.name),
+                "attachments": comm_attachments.get(communication.name, []),
                 "read_by_recipient": communication.read_by_recipient,
                 "delivery_status": communication.delivery_status,
             },
@@ -349,20 +341,14 @@ def get_lead_activities(name, get_events=True, exclude_crm_note_attachments=Fals
                 "data": {
                     "subject": thread["template_data"]["doc"]["subject"],
                     "content": thread["template_data"]["doc"]["content"],
-                    "sender_full_name": thread["template_data"]["doc"][
-                        "sender_full_name"
-                    ],
+                    "sender_full_name": thread["template_data"]["doc"]["sender_full_name"],
                     "sender": thread["template_data"]["doc"]["sender"],
                     "recipients": thread["template_data"]["doc"]["recipients"],
                     "cc": thread["template_data"]["doc"]["cc"],
                     "bcc": thread["template_data"]["doc"]["bcc"],
                     "attachments": thread["template_data"]["doc"]["attachments"],
-                    "read_by_recipient": thread["template_data"]["doc"][
-                        "read_by_recipient"
-                    ],
-                    "delivery_status": thread["template_data"]["doc"][
-                        "delivery_status"
-                    ],
+                    "read_by_recipient": thread["template_data"]["doc"]["read_by_recipient"],
+                    "delivery_status": thread["template_data"]["doc"]["delivery_status"],
                 },
                 "is_lead": True,
             }
@@ -374,9 +360,7 @@ def get_lead_activities(name, get_events=True, exclude_crm_note_attachments=Fals
             "activity_type": "attachment_log",
             "creation": attachment_log.creation,
             "owner": attachment_log.owner,
-            "data": parse_attachment_log(
-                attachment_log.content, attachment_log.comment_type
-            ),
+            "data": parse_attachment_log(attachment_log.content, attachment_log.comment_type),
             "is_lead": True,
         }
         activities.append(activity)
@@ -420,6 +404,52 @@ def get_attachments(doctype, name):
     )
 
 
+def get_attachments_batch(doctype, names):
+    """Batch fetch attachments for multiple documents.
+
+    Args:
+        doctype (str): The DocType to which attachments are linked (e.g., "Comment", "Communication")
+        names (list): List of document names to fetch attachments for
+
+    Returns:
+        dict: Dictionary mapping document names to their attachments.
+              Each value is a list of attachment dicts with fields: name, file_name,
+              file_type, file_url, file_size, is_private, creation, owner.
+              Returns empty dict if names list is empty.
+    """
+    if not names:
+        return {}
+
+    attachments = frappe.db.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": doctype,
+            "attached_to_name": ["in", names],
+        },
+        fields=[
+            "name",
+            "file_name",
+            "file_type",
+            "file_url",
+            "file_size",
+            "is_private",
+            "creation",
+            "owner",
+            "attached_to_name",
+        ],
+    )
+
+    # Group by attached_to_name
+    result = {}
+    for att in attachments:
+        key = att["attached_to_name"]
+        # Remove attached_to_name from the attachment dict since it's redundant
+        att_copy = {k: v for k, v in att.items() if k != "attached_to_name"}
+        result.setdefault(key, []).append(att_copy)
+
+    return result
+
+
 def handle_multiple_versions(versions):
     activities = []
     grouped_versions = []
@@ -433,11 +463,7 @@ def handle_multiple_versions(versions):
             if is_version:
                 grouped_versions.append(version)
             continue
-        if (
-            is_version
-            and old_version.get("owner")
-            and version["owner"] == old_version["owner"]
-        ):
+        if is_version and old_version.get("owner") and version["owner"] == old_version["owner"]:
             grouped_versions.append(version)
         else:
             if grouped_versions:
@@ -502,10 +528,7 @@ def get_linked_notes(name):
     if not notes:
         return {"root_notes": [], "attached_file_names": []}
 
-    note_map = {
-        str(note["name"]).strip(): {**note, "noteReplies": [], "attachments": []}
-        for note in notes
-    }
+    note_map = {str(note["name"]).strip(): {**note, "noteReplies": [], "attachments": []} for note in notes}
 
     note_names = [note["name"] for note in notes]
     attachments = frappe.get_all(
@@ -689,11 +712,7 @@ def delete_attachment(filename, doctype=None, docname=None):
             note_doc = frappe.get_doc("CRM Note", note.name)
             original_count = len(note_doc.custom_note_attachments)
 
-            updated_attachments = [
-                row
-                for row in note_doc.custom_note_attachments
-                if row.filename != filename
-            ]
+            updated_attachments = [row for row in note_doc.custom_note_attachments if row.filename != filename]
 
             if len(updated_attachments) != original_count:
                 note_doc.set("custom_note_attachments", updated_attachments)
@@ -706,9 +725,7 @@ def delete_attachment(filename, doctype=None, docname=None):
     except frappe.DoesNotExistError:
         frappe.throw(_("File with ID '{0}' not found.").format(filename))
     except frappe.LinkExistsError:
-        frappe.throw(
-            _("Cannot delete file because it's still linked with another document.")
-        )
+        frappe.throw(_("Cannot delete file because it's still linked with another document."))
     except Exception as e:
         frappe.log_error(f"Failed to delete file: {e}", "Delete Attachment Error")
         frappe.throw(_("An unexpected error occurred while deleting the file."))
@@ -716,6 +733,4 @@ def delete_attachment(filename, doctype=None, docname=None):
     if deleted:
         return {"message": _("File deleted successfully.")}
     else:
-        frappe.throw(
-            _("File was not deleted. Possibly already removed or not linked correctly.")
-        )
+        frappe.throw(_("File was not deleted. Possibly already removed or not linked correctly."))
