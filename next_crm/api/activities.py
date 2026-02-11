@@ -679,25 +679,33 @@ def delete_attachment(filename, doctype=None, docname=None):
     deleted = False
 
     if doctype and docname:
-        notes = frappe.get_all(
-            "CRM Note",
-            filters={"parenttype": doctype, "parent": docname},
-            fields=["name"],
+        # Find notes that have this attachment directly
+        notes_with_attachment = frappe.get_all(
+            "NCRM Attachments",
+            filters={"filename": filename},
+            fields=["parent"],
+            pluck="parent",
         )
 
-        for note in notes:
-            note_doc = frappe.get_doc("CRM Note", note.name)
-            original_count = len(note_doc.custom_note_attachments)
+        if notes_with_attachment:
+            # Filter to notes belonging to this document
+            notes_to_update = frappe.get_all(
+                "CRM Note",
+                filters={
+                    "name": ["in", notes_with_attachment],
+                    "parenttype": doctype,
+                    "parent": docname,
+                },
+                fields=["name"],
+                pluck="name",
+            )
 
-            updated_attachments = [
-                row
-                for row in note_doc.custom_note_attachments
-                if row.filename != filename
-            ]
-
-            if len(updated_attachments) != original_count:
-                note_doc.set("custom_note_attachments", updated_attachments)
-                note_doc.save()
+            if notes_to_update:
+                # Delete all matching attachment rows in a single operation
+                frappe.db.delete(
+                    "NCRM Attachments",
+                    {"parent": ["in", notes_to_update], "filename": filename}
+                )
                 deleted = True
 
     try:
