@@ -560,38 +560,58 @@ def get_linked_todos(name):
         fields=fields,
     )
 
+    if not todos:
+        return []
+
+    # Collect all unique linked event names
+    event_names = list({
+        todo["custom_linked_event"]
+        for todo in todos
+        if todo.get("custom_linked_event")
+    })
+
+    # Batch fetch events
+    events_map = {}
+    if event_names:
+        events = frappe.db.get_all(
+            "Event",
+            filters={"name": ["in", event_names]},
+            fields=["name", "sync_with_google_calendar", "google_calendar"],
+        )
+        events_map = {e["name"]: e for e in events}
+
+    # Batch fetch all event participants
+    participants_map = {}
+    if event_names:
+        all_participants = frappe.db.get_all(
+            "Event Participants",
+            filters={"parent": ["in", event_names]},
+            fields=["parent", "reference_doctype", "reference_docname", "email"],
+        )
+        for p in all_participants:
+            if p["parent"] not in participants_map:
+                participants_map[p["parent"]] = []
+            participants_map[p["parent"]].append({
+                "reference_doctype": p["reference_doctype"],
+                "reference_docname": p["reference_docname"],
+                "email": p["email"],
+            })
+
+    # Apply to todos
     for todo in todos:
-        if todo.get("custom_linked_event", None):
-            event = frappe.db.get_value(
-                "Event",
-                todo["custom_linked_event"],
-                ["name", "sync_with_google_calendar", "google_calendar"],
-            )
-            if not event:
-                continue
+        linked_event = todo.get("custom_linked_event")
+        if linked_event and linked_event in events_map:
+            event = events_map[linked_event]
             todo["_event"] = {
-                "name": event[0],
-                "sync_with_google_calendar": event[1],
-                "google_calendar": event[2],
+                "name": event["name"],
+                "sync_with_google_calendar": event["sync_with_google_calendar"],
+                "google_calendar": event["google_calendar"],
+                "event_participants": participants_map.get(event["name"], []),
             }
-            event_participants = frappe.db.get_all(
-                "Event Participants",
-                filters={"parent": todo["_event"]["name"]},
-                fields=["reference_doctype", "reference_docname", "email"],
-            )
-            event_participants = [
-                {
-                    "reference_doctype": participant["reference_doctype"],
-                    "reference_docname": participant["reference_docname"],
-                    "email": participant["email"],
-                }
-                for participant in event_participants
-            ]
-            todo["_event"]["event_participants"] = event_participants
         else:
             todo["_event"] = None
 
-    return todos or []
+    return todos
 
 
 def get_linked_events(name):
@@ -614,14 +634,32 @@ def get_linked_events(name):
         ],
     )
 
-    for event in events:
-        event["event_participants"] = frappe.db.get_all(
-            "Event Participants",
-            filters={"parent": event.name},
-            fields=["reference_doctype", "reference_docname", "email"],
-        )
+    if not events:
+        return []
 
-    return events or []
+    # Batch fetch all event participants
+    event_names = list({event.name for event in events})
+    participants_map = {}
+    if event_names:
+        all_participants = frappe.db.get_all(
+            "Event Participants",
+            filters={"parent": ["in", event_names]},
+            fields=["parent", "reference_doctype", "reference_docname", "email"],
+        )
+        for p in all_participants:
+            if p["parent"] not in participants_map:
+                participants_map[p["parent"]] = []
+            participants_map[p["parent"]].append({
+                "reference_doctype": p["reference_doctype"],
+                "reference_docname": p["reference_docname"],
+                "email": p["email"],
+            })
+
+    # Apply to events
+    for event in events:
+        event["event_participants"] = participants_map.get(event.name, [])
+
+    return events
 
 
 def get_linked_opportunities(doctype, name):
