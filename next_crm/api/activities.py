@@ -679,26 +679,25 @@ def delete_attachment(filename, doctype=None, docname=None):
     deleted = False
 
     if doctype and docname:
-        notes = frappe.get_all(
-            "CRM Note",
-            filters={"parenttype": doctype, "parent": docname},
-            fields=["name"],
+        # Use direct SQL query to find attachment references instead of loading full documents
+        attachment_refs = frappe.db.sql(
+            """
+            SELECT nca.name, nca.parent
+            FROM `tabNCRM Attachments` nca
+            INNER JOIN `tabCRM Note` cn ON cn.name = nca.parent
+            WHERE cn.parenttype = %s
+            AND cn.parent = %s
+            AND nca.filename = %s
+        """,
+            (doctype, docname, filename),
+            as_dict=True,
         )
 
-        for note in notes:
-            note_doc = frappe.get_doc("CRM Note", note.name)
-            original_count = len(note_doc.custom_note_attachments)
-
-            updated_attachments = [
-                row
-                for row in note_doc.custom_note_attachments
-                if row.filename != filename
-            ]
-
-            if len(updated_attachments) != original_count:
-                note_doc.set("custom_note_attachments", updated_attachments)
-                note_doc.save()
-                deleted = True
+        if attachment_refs:
+            # Delete the attachment references directly from child table using batch operation
+            attachment_ids = [ref["name"] for ref in attachment_refs]
+            frappe.db.delete("NCRM Attachments", {"name": ("in", attachment_ids)})
+            deleted = True
 
     try:
         frappe.delete_doc("File", filename)
