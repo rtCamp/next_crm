@@ -734,10 +734,7 @@ def get_latest_activity(name: str):
     filtered_activities = []
 
     for activity in activities:
-        if (
-            activity.get("activity_type") == "communication"
-            and activity.get("communication_type") == "Email"
-        ):
+        if activity.get("activity_type") == "communication":
             filtered_activities.append(
                 {
                     "type": "Email",
