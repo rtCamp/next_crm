@@ -4,6 +4,7 @@ import frappe
 from bs4 import BeautifulSoup
 from frappe import _
 from frappe.desk.form.load import get_docinfo
+from frappe.utils import get_datetime
 
 
 @frappe.whitelist()
@@ -719,3 +720,59 @@ def delete_attachment(filename, doctype=None, docname=None):
         frappe.throw(
             _("File was not deleted. Possibly already removed or not linked correctly.")
         )
+
+
+@frappe.whitelist()
+def get_latest_activity(name: str):
+    activities, calls, notes, todos, events, attachments, opportunities = (
+        get_activities(name)
+    )
+
+    if "docinfo" in frappe.response:
+        del frappe.response["docinfo"]
+
+    filtered_activities = []
+
+    for activity in activities:
+        if activity.get("activity_type") == "communication":
+            if activity.get("data", {}).get("recipients", None):
+                filtered_activities.append(
+                    {
+                        "type": "Email",
+                        "timestamp": get_datetime(activity.get("creation")),
+                        "data": activity,
+                    }
+                )
+            else:
+                filtered_activities.append(
+                    {
+                        "type": "Event",
+                        "timestamp": get_datetime(activity.get("creation")),
+                        "data": activity,
+                    }
+                )
+
+    for note in notes:
+        filtered_activities.append(
+            {
+                "type": "Note",
+                "timestamp": get_datetime(note.get("added_on")),
+                "data": note,
+            }
+        )
+
+    for todo in todos:
+        filtered_activities.append(
+            {
+                "type": "ToDo",
+                "timestamp": get_datetime(todo.get("modified")),
+                "data": todo,
+            }
+        )
+
+    if not filtered_activities:
+        return None
+
+    filtered_activities.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    return filtered_activities[0]
