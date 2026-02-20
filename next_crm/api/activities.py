@@ -734,17 +734,23 @@ def get_latest_activity(name: str):
     filtered_activities = []
 
     for activity in activities:
-        if (
-            activity.get("activity_type") == "communication"
-            and activity.get("communication_type") == "Email"
-        ):
-            filtered_activities.append(
-                {
-                    "type": "Email",
-                    "timestamp": get_datetime(activity.get("creation")),
-                    "data": activity,
-                }
-            )
+        if activity.get("activity_type") == "communication":
+            if activity.get("data", {}).get("recipients", None):
+                filtered_activities.append(
+                    {
+                        "type": "Email",
+                        "timestamp": get_datetime(activity.get("creation")),
+                        "data": activity,
+                    }
+                )
+            else:
+                filtered_activities.append(
+                    {
+                        "type": "Event",
+                        "timestamp": get_datetime(activity.get("creation")),
+                        "data": activity,
+                    }
+                )
 
     for note in notes:
         filtered_activities.append(
