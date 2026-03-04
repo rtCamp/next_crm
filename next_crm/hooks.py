@@ -129,9 +129,19 @@ app_license = "gpl-3.0"
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+override_doctype_class = {
+	# "Contact": "next_crm.overrides.contact.CustomContact",
+	# "Email Template": "next_crm.overrides.email_template.CustomEmailTemplate",
+	# "User": "next_crm.overrides.user.CustomUser",
+	"Customer": "next_crm.overrides.customer.Customer",
+	"Lead": "next_crm.overrides.lead.Lead",
+	# "Customize Form": "next_crm.overrides.customize_form.CustomizeFormOverride",
+	"Opportunity": "next_crm.overrides.opportunity.OverrideOpportunity",
+	"ToDo": "next_crm.overrides.todo.ToDo",
+	# "Prospect": "next_crm.overrides.prospect.Prospect",
+	# "Address": "next_crm.overrides.address.CustomAddress",
+	# "Report": "next_crm.overrides.report.OverrideReport",
+}
 
 # Document Events
 # ---------------
@@ -174,9 +184,10 @@ app_license = "gpl-3.0"
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "next_crm.event.get_events"
-# }
+override_whitelisted_methods = {
+	"crm.api.activities.get_activities": "next_crm.api.activities.get_activities",
+	"crm.api.doc.get_quick_filters": "next_crm.api.doc.get_quick_filters",
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
@@ -246,4 +257,3 @@ app_license = "gpl-3.0"
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
-

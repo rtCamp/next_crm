@@ -5,3 +5,7 @@
 tags
 node_modules
 __pycache__
+frontend/src
+next_crm/public/frontend
+next_crm/www/crm.html
+build
