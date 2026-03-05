@@ -69,8 +69,7 @@ def get_filterable_fields(doctype: str):
     fields = [
         field.as_dict()
         for field in fields
-        if field.fieldtype not in no_value_fields
-        and field.fieldtype in allowed_fieldtypes
+        if field.fieldtype not in no_value_fields and field.fieldtype in allowed_fieldtypes
     ]
 
     standard_fields = [
@@ -95,10 +94,7 @@ def get_filterable_fields(doctype: str):
         {"fieldname": "modified", "fieldtype": "Datetime", "label": "Last Updated On"},
     ]
     for field in standard_fields:
-        if (
-            field.get("fieldname") not in restricted_fields
-            and field.get("fieldtype") in allowed_fieldtypes
-        ):
+        if field.get("fieldname") not in restricted_fields and field.get("fieldtype") in allowed_fieldtypes:
             field["name"] = field.get("fieldname")
             fields.append(frappe._dict(field))
 
@@ -126,10 +122,7 @@ def get_group_by_fields(doctype: str):
 
     fields = frappe.get_meta(doctype).fields
     fields = [
-        field
-        for field in fields
-        if field.fieldtype not in no_value_fields
-        and field.fieldtype in allowed_fieldtypes
+        field for field in fields if field.fieldtype not in no_value_fields and field.fieldtype in allowed_fieldtypes
     ]
     fields = [
         {
@@ -188,9 +181,7 @@ def get_quick_filters(doctype: str):
         )
 
     if doctype == "Lead":
-        quick_filters = [
-            filter for filter in quick_filters if filter.get("name") != "converted"
-        ]
+        quick_filters = [filter for filter in quick_filters if filter.get("name") != "converted"]
 
     return quick_filters
 
@@ -309,9 +300,7 @@ def get_data(
                 if isinstance(filters.get("allocated_to"), list):
                     if filters.get("allocated_to")[0] == "in":
                         allocated_to_list = filters.get("allocated_to")[1]
-                        allocated_to_list = list(
-                            set(allocated_to_list) & set(sales_team_members)
-                        )
+                        allocated_to_list = list(set(allocated_to_list) & set(sales_team_members))
                         filters["allocated_to"] = ["in", allocated_to_list]
                 elif filters.get("allocated_to") not in sales_team_members:
                     filters["allocated_to"] = ["=", session_user]
@@ -358,12 +347,8 @@ def get_data(
             "user": frappe.session.user,
         }
 
-        if not custom_view and frappe.db.exists(
-            "CRM View Settings", default_view_filters
-        ):
-            list_view_settings = frappe.get_doc(
-                "CRM View Settings", default_view_filters
-            )
+        if not custom_view and frappe.db.exists("CRM View Settings", default_view_filters):
+            list_view_settings = frappe.get_doc("CRM View Settings", default_view_filters)
             columns = frappe.parse_json(list_view_settings.columns)
             rows = frappe.parse_json(list_view_settings.rows)
             is_default = False
@@ -413,16 +398,12 @@ def get_data(
 
         available_columns = []
         if column_field:
-            available_columns = get_available_kanban_column_options(
-                doctype, column_field
-            )
+            available_columns = get_available_kanban_column_options(doctype, column_field)
 
         if not kanban_columns:
             kanban_columns = available_columns
         elif available_columns:
-            kanban_columns = merge_kanban_columns_with_available_options(
-                kanban_columns, available_columns
-            )
+            kanban_columns = merge_kanban_columns_with_available_options(kanban_columns, available_columns)
 
         if not title_field:
             title_field = "name"
@@ -435,9 +416,7 @@ def get_data(
         if not kanban_fields:
             kanban_fields = ["name"]
             if hasattr(_list, "default_kanban_settings"):
-                kanban_fields = json.loads(
-                    _list.default_kanban_settings().get("kanban_fields")
-                )
+                kanban_fields = json.loads(_list.default_kanban_settings().get("kanban_fields"))
 
         for field in kanban_fields:
             if field not in rows:
@@ -463,11 +442,9 @@ def get_data(
             column_filters = {column_field: kc.get("name")}
             order = kc.get("order")
 
-            if (
-                column_field in filters
-                and filters.get(column_field) != kc.get("name")
-                and not cf_in_filter
-            ) or kc.get("delete"):
+            if (column_field in filters and filters.get(column_field) != kc.get("name") and not cf_in_filter) or kc.get(
+                "delete"
+            ):
                 column_data = []
             else:
                 if cf_in_filter:
@@ -482,9 +459,7 @@ def get_data(
                 if order:
                     if "custom_priority" not in rows:
                         rows.append("custom_priority")
-                    column_data = get_records_based_on_order(
-                        doctype, rows, column_filters, page_length, order
-                    )
+                    column_data = get_records_based_on_order(doctype, rows, column_filters, page_length, order)
                 else:
                     if "custom_priority" not in rows:
                         rows.append("custom_priority")
@@ -499,26 +474,17 @@ def get_data(
                 new_filters = filters.copy()
                 new_filters.update({column_field: kc.get("name")})
 
-                all_count = len(
-                    frappe.get_list(
-                        doctype, filters=convert_filter_to_tuple(doctype, new_filters)
-                    )
-                )
+                all_count = len(frappe.get_list(doctype, filters=convert_filter_to_tuple(doctype, new_filters)))
 
                 kc["all_count"] = all_count
                 kc["count"] = len(column_data)
 
-                for d in column_data:
-                    getCounts(d, doctype)
+                get_counts_batch(column_data, doctype)
 
             if order:
                 column_data = sorted(
                     column_data,
-                    key=lambda x: (
-                        order.index(x.get("name"))
-                        if x.get("name") in order
-                        else len(order)
-                    ),
+                    key=lambda x: (order.index(x.get("name")) if x.get("name") in order else len(order)),
                 )
 
             data.append({"column": kc, "fields": kanban_fields, "data": column_data})
@@ -559,9 +525,7 @@ def get_data(
             fields.append(field)
 
     if not is_default and custom_view_name:
-        is_default = frappe.db.get_value(
-            "CRM View Settings", custom_view_name, "load_default_columns"
-        )
+        is_default = frappe.db.get_value("CRM View Settings", custom_view_name, "load_default_columns")
 
     if group_by_field and view_type == "group_by":
 
@@ -577,10 +541,7 @@ def get_data(
 
                 if order_by and group_by_field in order_by:
                     order_by_fields = order_by.split(",")
-                    order_by_fields = [
-                        (field.split(" ")[0], field.split(" ")[1])
-                        for field in order_by_fields
-                    ]
+                    order_by_fields = [(field.split(" ")[0], field.split(" ")[1]) for field in order_by_fields]
                     if (group_by_field, "asc") in order_by_fields:
                         options.sort()
                     elif (group_by_field, "desc") in order_by_fields:
@@ -686,16 +647,10 @@ def get_available_kanban_column_options(doctype, column_field):
                     has_position = True
 
         order_by = "position asc" if has_position else "modified asc"
-        return frappe.get_all(
-            field_meta.options, fields=column_fields, order_by=order_by
-        )
+        return frappe.get_all(field_meta.options, fields=column_fields, order_by=order_by)
 
     if field_meta.fieldtype == "Select" and field_meta.options:
-        return [
-            {"name": option}
-            for option in (opt.strip() for opt in field_meta.options.split("\n"))
-            if option
-        ]
+        return [{"name": option} for option in (opt.strip() for opt in field_meta.options.split("\n")) if option]
 
     return []
 
@@ -704,14 +659,10 @@ def merge_kanban_columns_with_available_options(persisted_columns, available_col
     if not available_columns:
         return persisted_columns
 
-    available_map = {
-        column.get("name"): column for column in available_columns if column.get("name")
-    }
+    available_map = {column.get("name"): column for column in available_columns if column.get("name")}
 
     persisted_index = {
-        column.get("name"): index
-        for index, column in enumerate(persisted_columns)
-        if column.get("name")
+        column.get("name"): index for index, column in enumerate(persisted_columns) if column.get("name")
     }
 
     merged_columns = []
@@ -769,9 +720,7 @@ def get_fields_meta(doctype, restricted_fieldtypes=None, as_array=False):
         not_allowed_fieldtypes += restricted_fieldtypes
 
     fields = frappe.get_meta(doctype).fields
-    fields = [
-        field for field in fields if field.fieldtype not in not_allowed_fieldtypes
-    ]
+    fields = [field for field in fields if field.fieldtype not in not_allowed_fieldtypes]
 
     standard_fields = [
         {"fieldname": "name", "fieldtype": "Link", "label": "ID", "options": doctype},
@@ -796,10 +745,7 @@ def get_fields_meta(doctype, restricted_fieldtypes=None, as_array=False):
     ]
 
     for field in standard_fields:
-        if (
-            not restricted_fieldtypes
-            or field.get("fieldtype") not in restricted_fieldtypes
-        ):
+        if not restricted_fieldtypes or field.get("fieldtype") not in restricted_fieldtypes:
             fields.append(field)
 
     if as_array:
@@ -816,9 +762,7 @@ def get_fields_meta(doctype, restricted_fieldtypes=None, as_array=False):
 def get_sidebar_fields(doctype, name):
     if not frappe.db.exists("CRM Fields Layout", {"dt": doctype, "type": "Side Panel"}):
         return []
-    layout = frappe.get_doc(
-        "CRM Fields Layout", {"dt": doctype, "type": "Side Panel"}
-    ).layout
+    layout = frappe.get_doc("CRM Fields Layout", {"dt": doctype, "type": "Side Panel"}).layout
 
     if not layout:
         return []
@@ -832,9 +776,7 @@ def get_sidebar_fields(doctype, name):
     ]
 
     fields = frappe.get_meta(doctype).fields
-    fields = [
-        field for field in fields if field.fieldtype not in not_allowed_fieldtypes
-    ]
+    fields = [field for field in fields if field.fieldtype not in not_allowed_fieldtypes]
 
     doc = frappe.get_cached_doc(doctype, name)
     has_high_permlevel_fields = any(df.permlevel > 0 for df in fields)
@@ -848,19 +790,13 @@ def get_sidebar_fields(doctype, name):
             field_obj = next((f for f in fields if f.fieldname == field), None)
             if field_obj:
                 if field_obj.permlevel > 0:
-                    field_has_write_access = (
-                        field_obj.permlevel in has_write_access_to_permlevels
-                    )
-                    field_has_read_access = (
-                        field_obj.permlevel in has_read_access_to_permlevels
-                    )
+                    field_has_write_access = field_obj.permlevel in has_write_access_to_permlevels
+                    field_has_read_access = field_obj.permlevel in has_read_access_to_permlevels
                     if not field_has_write_access and field_has_read_access:
                         field_obj.read_only = 1
                     if not field_has_read_access and not field_has_write_access:
                         field_obj.hidden = 1
-                section["fields"][section.get("fields").index(field)] = get_field_obj(
-                    field_obj
-                )
+                section["fields"][section.get("fields").index(field)] = get_field_obj(field_obj)
 
     fields_meta = {}
     for field in fields:
@@ -887,9 +823,7 @@ def get_field_obj(field):
         obj["doctype"] = field.options
     elif field.fieldtype == "Select" and field.options:
         obj["placeholder"] = field.get("placeholder") or "Select " + field.label + "..."
-        obj["options"] = [
-            {"label": option, "value": option} for option in field.options.split("\n")
-        ]
+        obj["options"] = [{"label": option, "value": option} for option in field.options.split("\n")]
 
     if field.read_only:
         obj["tooltip"] = "This field is read only and cannot be edited."
@@ -966,6 +900,95 @@ def get_fields(doctype: str, allow_all_fieldtypes: bool = False):
     return _fields
 
 
+def get_counts_batch(records, doctype):
+    """Batch fetch counts for multiple records in single queries"""
+    if not records:
+        return
+
+    names = [r.get("name") for r in records if r.get("name")]
+    if not names:
+        return
+
+    # Initialize counts
+    for r in records:
+        r["_email_count"] = 0
+        r["_comment_count"] = 0
+        r["_todo_count"] = 0
+        r["_note_count"] = 0
+
+    name_set = tuple(names)
+
+    # Batch fetch email counts (Communication + Automated Message)
+    email_counts = frappe.db.sql(
+        """
+        SELECT reference_name, COUNT(*) as cnt
+        FROM `tabCommunication`
+        WHERE reference_doctype = %s
+        AND reference_name IN %s
+        AND communication_type IN ('Communication', 'Automated Message')
+        GROUP BY reference_name
+    """,
+        (doctype, name_set),
+        as_dict=True,
+    )
+
+    email_map = {r["reference_name"]: r["cnt"] for r in email_counts}
+
+    # Batch fetch comment counts
+    comment_counts = frappe.db.sql(
+        """
+        SELECT reference_name, COUNT(*) as cnt
+        FROM `tabComment`
+        WHERE reference_doctype = %s
+        AND reference_name IN %s
+        AND comment_type = 'Comment'
+        GROUP BY reference_name
+    """,
+        (doctype, name_set),
+        as_dict=True,
+    )
+
+    comment_map = {r["reference_name"]: r["cnt"] for r in comment_counts}
+
+    # Batch fetch todo counts
+    todo_counts = frappe.db.sql(
+        """
+        SELECT reference_name, COUNT(*) as cnt
+        FROM `tabToDo`
+        WHERE reference_type = %s
+        AND reference_name IN %s
+        GROUP BY reference_name
+    """,
+        (doctype, name_set),
+        as_dict=True,
+    )
+
+    todo_map = {r["reference_name"]: r["cnt"] for r in todo_counts}
+
+    # Batch fetch note counts
+    note_counts = frappe.db.sql(
+        """
+        SELECT parent, COUNT(*) as cnt
+        FROM `tabCRM Note`
+        WHERE parenttype = %s
+        AND parent IN %s
+        GROUP BY parent
+    """,
+        (doctype, name_set),
+        as_dict=True,
+    )
+
+    note_map = {r["parent"]: r["cnt"] for r in note_counts}
+
+    # Apply counts to records
+    for r in records:
+        name = r.get("name")
+        r["_email_count"] = email_map.get(name, 0)
+        r["_comment_count"] = comment_map.get(name, 0)
+        r["_todo_count"] = todo_map.get(name, 0)
+        r["_note_count"] = note_map.get(name, 0)
+
+
 def getCounts(d, doctype):
     d["_email_count"] = (
         frappe.db.count(
@@ -994,9 +1017,7 @@ def getCounts(d, doctype):
             "comment_type": "Comment",
         },
     )
-    d["_todo_count"] = frappe.db.count(
-        "ToDo", filters={"reference_type": doctype, "reference_name": d.get("name")}
-    )
+    d["_todo_count"] = frappe.db.count("ToDo", filters={"reference_type": doctype, "reference_name": d.get("name")})
     d["_note_count"] = frappe.db.count(
         "CRM Note",
         filters={"parenttype": doctype, "parent": d.get("name")},
