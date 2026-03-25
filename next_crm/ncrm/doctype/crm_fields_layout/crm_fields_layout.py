@@ -45,7 +45,10 @@ def get_fields_layout(doctype: str, type: str):
                     else:
                         select_options = [options]
 
-                    options = [{"label": _(option), "value": option} for option in select_options]
+                    options = [
+                        {"label": _(option), "value": option}
+                        for option in select_options
+                    ]
                     options.insert(0, {"label": "", "value": ""})
 
                 field = {
