@@ -11,22 +11,33 @@ def delete_attachments_from_crm_notes(doctype, docname):
         doctype (str): The parent doctype (e.g., "Opportunity")
         docname (str): The name of the parent doc (e.g., "OPTY-0001")
     """
-    file_names_to_delete = set()
-
-    notes = frappe.get_all(
-        "CRM Note", filters={"parenttype": doctype, "parent": docname}, fields=["name"]
+    # Use direct SQL query to get all attachment filenames and their references
+    # This replaces the N+1 pattern of loading each note document
+    attachment_data = frappe.db.sql(
+        """
+        SELECT nca.name as attachment_id, nca.filename
+        FROM `tabNCRM Attachments` nca
+        INNER JOIN `tabCRM Note` cn ON cn.name = nca.parent
+        WHERE cn.parenttype = %s
+        AND cn.parent = %s
+        AND nca.filename IS NOT NULL
+    """,
+        (doctype, docname),
+        as_dict=True,
     )
 
-    for note in notes:
-        note_doc = frappe.get_doc("CRM Note", note.name)
+    if not attachment_data:
+        return
 
-        for row in note_doc.custom_note_attachments:
-            if row.filename:
-                file_names_to_delete.add(row.filename)
+    # Collect unique filenames for deletion
+    file_names_to_delete = {row["filename"] for row in attachment_data}
 
-        note_doc.set("custom_note_attachments", [])
-        note_doc.save()
+    # Delete all attachment references directly from child table
+    attachment_ids = [row["attachment_id"] for row in attachment_data]
+    if attachment_ids:
+        frappe.db.delete("NCRM Attachments", {"name": ("in", attachment_ids)})
 
+    # Delete the actual file documents
     for file_name in file_names_to_delete:
         try:
             frappe.delete_doc("File", file_name)
