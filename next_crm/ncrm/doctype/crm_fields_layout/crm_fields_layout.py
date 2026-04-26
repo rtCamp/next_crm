@@ -49,7 +49,8 @@ def get_fields_layout(doctype: str, type: str):
                         {"label": _(option), "value": option}
                         for option in select_options
                     ]
-                    options.insert(0, {"label": "", "value": ""})
+                    if not any(not option.get("value") for option in options):
+                        options.insert(0, {"label": "", "value": ""})
 
                 field = {
                     "label": _(field.label),
