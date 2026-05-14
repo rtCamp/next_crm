@@ -63,7 +63,7 @@ def make_opportunity(source_name, target_doc=None):
     return target_doc
 
 
-try:
-    monkey_patch()
-except Exception:
-    pass
+# try:
+#     monkey_patch()
+# except Exception:
+#     pass

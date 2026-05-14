@@ -45,10 +45,10 @@ add_to_apps_screen = [
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {
-    "Lead": "public/js/lead.js",
-    "Opportunity": "public/js/opportunity.js",
-}
+# doctype_js = {
+#     "Lead": "public/js/lead.js",
+#     "Opportunity": "public/js/opportunity.js",
+# }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -64,9 +64,9 @@ doctype_js = {
 # 	"Role": "home_page"
 # }
 
-website_route_rules = [
-    {"from_route": "/next-crm/<path:app_path>", "to_route": "next-crm"},
-]
+# website_route_rules = [
+#     {"from_route": "/next-crm/<path:app_path>", "to_route": "next-crm"},
+# ]
 
 # Generators
 # ----------
@@ -90,10 +90,10 @@ before_install = "next_crm.install.before_install"
 after_install = "next_crm.install.after_install"
 
 # Uninstallation
-# ------------
+# # ------------
 
-before_uninstall = "next_crm.uninstall.before_uninstall"
-# after_uninstall = "next_crm.uninstall.after_uninstall"
+# before_uninstall = "next_crm.uninstall.before_uninstall"
+# # after_uninstall = "next_crm.uninstall.after_uninstall"
 
 # Integration Setup
 # ------------------
@@ -133,57 +133,57 @@ before_uninstall = "next_crm.uninstall.before_uninstall"
 # ---------------
 # Override standard doctype classes
 
-override_doctype_class = {
-    "Contact": "next_crm.overrides.contact.CustomContact",
-    "Email Template": "next_crm.overrides.email_template.CustomEmailTemplate",
-    "User": "next_crm.overrides.user.CustomUser",
-    "Customer": "next_crm.overrides.customer.Customer",
-    "Lead": "next_crm.overrides.lead.Lead",
-    "Customize Form": "next_crm.overrides.customize_form.CustomizeFormOverride",
-    "Opportunity": "next_crm.overrides.opportunity.OverrideOpportunity",
-    "ToDo": "next_crm.overrides.todo.ToDo",
-    "Prospect": "next_crm.overrides.prospect.Prospect",
-    "Address": "next_crm.overrides.address.CustomAddress",
-    "Report": "next_crm.overrides.report.OverrideReport",
-}
+# override_doctype_class = {
+#     "Contact": "next_crm.overrides.contact.CustomContact",
+#     "Email Template": "next_crm.overrides.email_template.CustomEmailTemplate",
+#     "User": "next_crm.overrides.user.CustomUser",
+#     "Customer": "next_crm.overrides.customer.Customer",
+#     "Lead": "next_crm.overrides.lead.Lead",
+#     "Customize Form": "next_crm.overrides.customize_form.CustomizeFormOverride",
+#     "Opportunity": "next_crm.overrides.opportunity.OverrideOpportunity",
+#     "ToDo": "next_crm.overrides.todo.ToDo",
+#     "Prospect": "next_crm.overrides.prospect.Prospect",
+#     "Address": "next_crm.overrides.address.CustomAddress",
+#     "Report": "next_crm.overrides.report.OverrideReport",
+# }
 
-# Document Events
-# ---------------
-# Hook on document methods and events
+# # Document Events
+# # ---------------
+# # Hook on document methods and events
 
-doc_events = {
-    "Contact": {
-        "validate": ["next_crm.doc_events.contact.validate"],
-    },
-    "ToDo": {
-        "after_insert": ["next_crm.doc_events.todo.after_insert"],
-        "on_update": ["next_crm.doc_events.todo.on_update"],
-        "before_insert": ["next_crm.doc_events.todo.before_insert"],
-        "on_trash": ["next_crm.doc_events.todo.on_trash"],
-    },
-    "Comment": {
-        "on_update": ["next_crm.doc_events.comment.on_update"],
-    },
-    "WhatsApp Message": {
-        "validate": ["next_crm.doc_events.whatsapp_message.validate"],
-        "on_update": ["next_crm.doc_events.whatsapp_message.on_update"],
-    },
-    "User": {
-        "before_validate": ["next_crm.doc_events.user.before_validate"],
-    },
-    "Opportunity": {
-        "on_trash": ["next_crm.doc_events.opportunity.on_trash"],
-        "before_save": ["next_crm.doc_events.opportunity.before_save"],
-        "after_insert": ["next_crm.doc_events.opportunity.after_insert"],
-    },
-    "Notification Log": {
-        "before_save": ["next_crm.doc_events.notification_log.before_save"],
-    },
-    "Lead": {
-        "on_update": ["next_crm.doc_events.lead.on_update"],
-        "on_trash": ["next_crm.doc_events.lead.on_trash"],
-    },
-}
+# doc_events = {
+#     "Contact": {
+#         "validate": ["next_crm.doc_events.contact.validate"],
+#     },
+#     "ToDo": {
+#         "after_insert": ["next_crm.doc_events.todo.after_insert"],
+#         "on_update": ["next_crm.doc_events.todo.on_update"],
+#         "before_insert": ["next_crm.doc_events.todo.before_insert"],
+#         "on_trash": ["next_crm.doc_events.todo.on_trash"],
+#     },
+#     "Comment": {
+#         "on_update": ["next_crm.doc_events.comment.on_update"],
+#     },
+#     "WhatsApp Message": {
+#         "validate": ["next_crm.doc_events.whatsapp_message.validate"],
+#         "on_update": ["next_crm.doc_events.whatsapp_message.on_update"],
+#     },
+#     "User": {
+#         "before_validate": ["next_crm.doc_events.user.before_validate"],
+#     },
+#     "Opportunity": {
+#         "on_trash": ["next_crm.doc_events.opportunity.on_trash"],
+#         "before_save": ["next_crm.doc_events.opportunity.before_save"],
+#         "after_insert": ["next_crm.doc_events.opportunity.after_insert"],
+#     },
+#     "Notification Log": {
+#         "before_save": ["next_crm.doc_events.notification_log.before_save"],
+#     },
+#     "Lead": {
+#         "on_update": ["next_crm.doc_events.lead.on_update"],
+#         "on_trash": ["next_crm.doc_events.lead.on_trash"],
+#     },
+# }
 
 # Scheduled Tasks
 # ---------------
