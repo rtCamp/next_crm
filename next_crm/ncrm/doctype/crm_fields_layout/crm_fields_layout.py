@@ -36,18 +36,27 @@ def get_fields_layout(doctype: str, type: str):
         for field in section.get("fields") if section.get("fields") else []:
             field = next((f for f in fields if f.fieldname == field), None)
             if field:
-                if field.fieldtype == "Select" and field.options:
-                    field.options = field.options.split("\n")
-                    field.options = [
+                options = field.options
+                if field.fieldtype == "Select" and options:
+                    if isinstance(options, str):
+                        select_options = options.split("\n")
+                    elif isinstance(options, (list, tuple)):
+                        select_options = list(options)
+                    else:
+                        select_options = [options]
+
+                    options = [
                         {"label": _(option), "value": option}
-                        for option in field.options
+                        for option in select_options
                     ]
-                    field.options.insert(0, {"label": "", "value": ""})
+                    if not any(not option.get("value") for option in options):
+                        options.insert(0, {"label": "", "value": ""})
+
                 field = {
                     "label": _(field.label),
                     "name": field.fieldname,
                     "type": field.fieldtype,
-                    "options": field.options,
+                    "options": options,
                     "mandatory": field.reqd,
                     "placeholder": field.get("placeholder"),
                     "filters": field.get("link_filters"),
