@@ -17,3 +17,4 @@ next_crm.patches.v1_0.update_won_date
 next_crm.patches.v1_0.update_crm_views_filters
 next_crm.patches.v1_0.add_contracts_documents_section_to_customers
 next_crm.patches.v0_1.remove_stale_field_order_property_setters
+next_crm.patches.v1_0.backfill_utm_source_from_legacy_source
