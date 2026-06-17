@@ -1,3 +1,26 @@
+> [!WARNING]
+> **Next CRM is being archived.** This repository is being archived effective immediately and will remain publicly accessible in a read-only state. You can continue to browse the code and reference the project history, but no new development, issues, or pull requests will be accepted.
+
+## Why we are discontinuing it
+
+Next CRM served its purpose well, but [Frappe CRM](https://github.com/frappe/crm) has matured significantly over time with new features, improvements, and active maintenance.
+
+Maintaining a fork and continuously syncing upstream changes has become increasingly difficult and inefficient. Additionally, with ERPNext CRM DocTypes planned for deprecation in the future, we do not want to carry the long-term maintenance burden of supporting legacy CRM structures.
+
+## What's next?
+
+Use [Frappe CRM](https://github.com/frappe/crm) (the upstream app) for your CRM needs.
+
+## Migration to Frappe CRM
+
+We have built a migration app ([erpnext_crm_to_frappe_crm_migrator](https://github.com/rtCamp/erpnext_crm_to_frappe_crm_migrator)) that migrates data from ERPNext CRM and Next CRM DocTypes to [Frappe CRM](https://github.com/frappe/crm), including the required field mappings. Going forward, Frappe CRM will be the single source of truth for CRM data.
+
+## Extended features
+
+We built [Frappe CRM XT](https://github.com/rtCamp/frappe_crm_xt), an extension app for features required by our sales team. We will continue adding custom functionality there and contribute generic improvements back to [Frappe CRM](https://github.com/frappe/crm) whenever possible.
+
+---
+
 <div align="center">
     <img width="60" src=".github/logo.png" alt="Next CRM Logo">
     <h1>Next CRM</h1>
