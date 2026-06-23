@@ -499,10 +499,8 @@ def get_data(
                 new_filters = filters.copy()
                 new_filters.update({column_field: kc.get("name")})
 
-                all_count = len(
-                    frappe.get_list(
-                        doctype, filters=convert_filter_to_tuple(doctype, new_filters)
-                    )
+                all_count = frappe.db.count(
+                    doctype, filters=convert_filter_to_tuple(doctype, new_filters)
                 )
 
                 kc["all_count"] = all_count
@@ -620,7 +618,7 @@ def get_data(
         "page_length_count": page_length_count,
         "is_default": is_default,
         "views": get_views(doctype),
-        "total_count": len(frappe.get_list(doctype, filters=filters)),
+        "total_count": frappe.db.count(doctype, filters=filters),
         "row_count": len(data),
         "form_script": get_form_script(doctype),
         "list_script": get_form_script(doctype, "List"),
