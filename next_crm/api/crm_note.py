@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import frappe
 from frappe import _
 from frappe.desk.doctype.notification_log.notification_log import (
@@ -258,107 +260,114 @@ def delete_note(note_name):
 
 
 def copy_crm_notes_to_opportunity(lead, opportunity):
-    notes = frappe.get_all(
+    # Batch fetch all notes with required fields only
+    all_notes = frappe.get_all(
         "CRM Note",
-        fields="*",
-        filters={
-            "parent": lead,
-            "parenttype": "Lead",
-            "custom_parent_note": ["in", ["", None]],
-        },
+        filters={"parent": lead, "parenttype": "Lead"},
+        fields=["name", "custom_title", "note", "owner", "added_by", "added_on", "custom_parent_note"],
         order_by="creation asc",
     )
-
-    for note in notes:
-        new_parent_note = frappe.new_doc("CRM Note")
-        new_parent_note.custom_title = note.custom_title or ""
-        new_parent_note.note = note.note or ""
-        new_parent_note.parenttype = "Opportunity"
-        new_parent_note.parent = opportunity
-        new_parent_note.parentfield = "notes"
-        new_parent_note.added_by = note.added_by
-        new_parent_note.added_on = note.added_on or now()
-
-        new_parent_note.insert()
-        attachments = frappe.get_all(
-            "NCRM Attachments",
-            filters={"parent": note.name, "parenttype": "CRM Note"},
-            fields=["filename"],
+    
+    # Early return if no notes to copy
+    if not all_notes:
+        return
+    
+    # Separate parent notes from child notes
+    parent_notes = [n for n in all_notes if not n.custom_parent_note]
+    child_notes_by_parent = defaultdict(list)
+    for n in all_notes:
+        if n.custom_parent_note:
+            child_notes_by_parent[n.custom_parent_note].append(n)
+    
+    # Batch fetch all attachments for all notes at once
+    note_names = [n.name for n in all_notes]
+    all_attachments = frappe.get_all(
+        "NCRM Attachments",
+        filters={"parent": ["in", note_names], "parenttype": "CRM Note"},
+        fields=["parent", "filename"],
+    )
+    
+    # Group attachments by parent note
+    attachments_by_note = defaultdict(list)
+    for att in all_attachments:
+        attachments_by_note[att.parent].append(att.filename)
+    
+    # Process parent notes with pre-fetched data
+    for note in parent_notes:
+        new_parent_note = _create_note_copy(
+            note, 
+            opportunity, 
+            attachments_by_note.get(note.name, [])
         )
-        for row in attachments:
-            new_file_name = duplicate_file(
-                row.filename,
-                new_attached_to_doctype="Opportunity",
-                new_attached_to_name=opportunity,
-            )
-            if new_file_name:
-                new_parent_note.append(
-                    "custom_note_attachments",
-                    {
-                        "filename": new_file_name,
-                    },
-                )
-
-        if attachments:
-            new_parent_note.save()
-
-        frappe.db.set_value(
-            "CRM Note",
-            new_parent_note.name,
-            {
-                "owner": note.owner,
-            },
-        )
-
-        child_notes = frappe.get_all(
-            "CRM Note",
-            filters={"custom_parent_note": note.name},
-            fields="*",
-        )
-
+        
+        # Process child notes for this parent
+        child_notes = child_notes_by_parent[note.name]
         for child_note in child_notes:
-            new_child_note = frappe.new_doc("CRM Note")
-            new_child_note.custom_title = child_note.custom_title or ""
-            new_child_note.note = child_note.note or ""
-            new_child_note.parenttype = "Opportunity"
-            new_child_note.parent = opportunity
-            new_child_note.parentfield = "notes"
-            new_child_note.added_by = child_note.added_by
-            new_child_note.added_on = child_note.added_on or now()
-            new_child_note.custom_parent_note = new_parent_note.name
-
-            new_child_note.insert()
-            child_attachments = frappe.get_all(
-                "NCRM Attachments",
-                filters={"parent": child_note.name, "parenttype": "CRM Note"},
-                fields=["filename"],
+            _create_note_copy(
+                child_note, 
+                opportunity, 
+                attachments_by_note.get(child_note.name, []),
+                parent_note_name=new_parent_note.name
             )
+    
+    frappe.db.commit()
 
-            for row in child_attachments:
-                new_file_name = duplicate_file(
-                    row.filename,
-                    new_attached_to_doctype="Opportunity",
-                    new_attached_to_name=opportunity,
-                )
-                if new_file_name:
-                    new_child_note.append(
-                        "custom_note_attachments",
-                        {
-                            "filename": new_file_name,
-                        },
-                    )
 
-            if child_attachments:
-                new_child_note.save()
-
-            frappe.db.set_value(
-                "CRM Note",
-                new_child_note.name,
+def _create_note_copy(note, opportunity, attachments, parent_note_name=None):
+    """
+    Helper function to create a copy of a note with its attachments.
+    
+    Args:
+        note: The original note object with fields
+        opportunity: The opportunity name to attach the note to
+        attachments: List of attachment filenames for this note
+        parent_note_name: Optional parent note name for child notes
+    
+    Returns:
+        The newly created note document
+    """
+    new_note = frappe.new_doc("CRM Note")
+    new_note.custom_title = note.custom_title or ""
+    new_note.note = note.note or ""
+    new_note.parenttype = "Opportunity"
+    new_note.parent = opportunity
+    new_note.parentfield = "notes"
+    new_note.added_by = note.added_by
+    new_note.added_on = note.added_on or now()
+    
+    if parent_note_name:
+        new_note.custom_parent_note = parent_note_name
+    
+    new_note.insert()
+    
+    # Process attachments for this note
+    for filename in attachments:
+        new_file_name = duplicate_file(
+            filename,
+            new_attached_to_doctype="Opportunity",
+            new_attached_to_name=opportunity,
+        )
+        if new_file_name:
+            new_note.append(
+                "custom_note_attachments",
                 {
-                    "owner": child_note.owner,
+                    "filename": new_file_name,
                 },
             )
-    frappe.db.commit()
+    
+    if attachments:
+        new_note.save()
+    
+    # Set the owner to match the original note
+    frappe.db.set_value(
+        "CRM Note",
+        new_note.name,
+        {
+            "owner": note.owner,
+        },
+    )
+    
+    return new_note
 
 
 def duplicate_file(
